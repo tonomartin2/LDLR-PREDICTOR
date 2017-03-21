@@ -1,0 +1,266 @@
+######################################PREPARE PROBLEM 
+
+### LOAD LIBRARIES
+library(caret)
+library(plyr)
+library(ROCR)
+
+### LOAD DATASET
+
+filename <- "base.csv"
+# load the CSV file from the local directory
+dataset <- read.csv(filename, header=FALSE)
+
+### FEATURE 4 WILL NOT BE USED IN THE STUDY
+
+dataset <- dataset[,-5]
+
+### REORDER LEVELS OF FACTOR ("PATOGENICA" WILL BE THE FIRST)
+dataset$V1 <- relevel(dataset$V1, ref = "PATOGENICA")
+
+
+# SEPARATE TRAINING AND VALIDATION DATASETS (80% - 20%)
+set.seed(30)
+trainIndex <- createDataPartition(dataset$V1,p=.8,list=FALSE)
+trainData <- dataset[trainIndex,]
+testData  <- dataset[-trainIndex,]
+trainX <-trainData[,2:4]        # Pull out the variables for training
+sapply(trainX,summary)           # Look at a summary of the training data
+
+
+
+############ SVM (FIRST CLASSIFIER)
+
+### TRAIN CONTROL
+ctrl <- trainControl(method="repeatedcv",   # 10fold cross validation
+			number=10,                     
+			repeats=3,		    # do 3 repititions of cv
+                    	 summaryFunction=twoClassSummary,	# Use AUC to pick the best model
+                   	  classProbs=TRUE)
+			
+
+
+### calculate the pre-process parameters from the dataset (USING CENTER)
+preprocessParams <- preProcess(trainData[,1:4], method=c("center"))
+preprocessParams2 <- preProcess(testData[,1:4], method=c("center"))
+
+### transform the dataset using the parameters
+trainDataP <- predict(preprocessParams, trainData[,1:4])
+testDataP <- predict(preprocessParams2, testData[,1:4])
+
+
+### TRAIN AND TUNE THE MODEL
+
+set.seed(8)  
+fit.rf <- train(V1~., data=trainDataP, method = 'svmRadialWeights', trControl=ctrl)
+
+### MAKE PREDICTIONS
+predictions1 <- predict(fit.rf, testDataP[,1:4])
+# summarize accuracy
+table(predictions1, testDataP$V1)
+
+
+
+############ NNET (SECOND CLASSIFIER)
+
+### TRAIN CONTROL (SUBSAMPLING WITH SMOTE)
+ctrl <- trainControl(method="repeatedcv",   # 10fold cross validation
+			number=10,                     
+			repeats=3,		    # do 3 repititions of cv
+                    	 summaryFunction=twoClassSummary,	# Use AUC to pick the best model
+                   	  classProbs=TRUE,
+			sampling = "smote")
+
+
+### calculate the pre-process parameters from the dataset  (USING SCALE)
+preprocessParams <- preProcess(trainData[,1:4], method=c("scale"))
+preprocessParams2 <- preProcess(testData[,1:4], method=c("scale"))
+
+### transform the dataset using the parameters
+trainDataP <- predict(preprocessParams, trainData[,1:4])
+testDataP <- predict(preprocessParams2, testData[,1:4])
+
+#### TRAIN AND TUNE THE MODEL
+
+set.seed(1492)
+fit.rf <- train(V1~., data=trainDataP, method = 'nnet', trControl=ctrl)
+
+# make prediction
+predictions2 <- predict(fit.rf, testDataP[,1:4])
+# summarize accuracy
+table(predictions2, testDataP$V1)
+
+
+############ RF (THIRD CLASSIFIER)
+
+### TRAIN CONTROL
+ctrl <- trainControl(method="repeatedcv",   # 10fold cross validation
+			number=10,                     
+			repeats=3,		    # do 3 repititions of cv
+                    	 summaryFunction=twoClassSummary,	# Use AUC to pick the best model
+                   	  classProbs=TRUE)
+			
+
+
+### calculate the pre-process parameters from the dataset. (USING SCALE)
+preprocessParams <- preProcess(trainData[,1:4], method=c("scale"))
+preprocessParams2 <- preProcess(testData[,1:4], method=c("scale"))
+
+### transform the dataset using the parameters
+trainDataP <- predict(preprocessParams, trainData[,1:4])
+testDataP <- predict(preprocessParams2, testData[,1:4])
+
+
+##### TRAIN AND TUNE THE MODEL
+
+set.seed(1492)
+fit.rf <- train(V1~., data=trainDataP, method = 'rf', trControl=ctrl)
+
+### make prediction
+predictions3 <- predict(fit.rf, testDataP[,1:4])
+# summarize accuracy
+table(predictions3, testDataP$V1)
+
+
+
+
+###################### JOIN PREDICTIONS
+
+predDF <- data.frame(predictions1,predictions2,predictions3)
+
+
+########## EVALUACION DE TODAS LAS POSICIONES
+
+### LOAD DATASET
+
+filename <- "base.csv"
+# load the CSV file from the local directory
+dataset <- read.csv(filename, header=FALSE)
+
+### FEATURE 4 WILL NOT BE USED IN THE STUDY
+
+dataset <- dataset[,-5]
+
+### REORDER LEVELS OF FACTOR ("PATOGENICA" WILL BE THE FIRST)
+dataset$V1 <- relevel(dataset$V1, ref = "PATOGENICA")
+
+
+# SEPARATE TRAINING AND VALIDATION DATASETS (80% - 20%)
+set.seed(30)
+trainIndex <- createDataPartition(dataset$V1,p=.8,list=FALSE)
+trainData <- dataset[trainIndex,]
+trainX <-trainData[,2:4]        # Pull out the variables for training
+sapply(trainX,summary)           # Look at a summary of the training data
+
+
+
+
+
+### LOAD DATASET
+
+filenamecompleta <- "completo.csv"
+# load the CSV file from the local directory
+datasetcompleto <- read.csv(filenamecompleta, header=FALSE,sep=";")
+
+
+############ SVM (FIRST CLASSIFIER)
+
+### TRAIN CONTROL
+ctrl <- trainControl(method="repeatedcv",   # 10fold cross validation
+			number=10,                     
+			repeats=3,		    # do 3 repititions of cv
+                    	 summaryFunction=twoClassSummary,	# Use AUC to pick the best model
+                   	  classProbs=TRUE)
+			
+
+
+### calculate the pre-process parameters from the dataset (USING CENTER)
+preprocessParams <- preProcess(trainData[,1:4], method=c("center"))
+preprocessParams2 <- preProcess(datasetcompleto[,1:4], method=c("center"))
+
+### transform the dataset using the parameters
+trainDataP <- predict(preprocessParams, trainData[,1:4])
+testDataP <- predict(preprocessParams2, datasetcompleto[,1:4])
+
+
+### TRAIN AND TUNE THE MODEL
+
+set.seed(8)  
+fit.rf <- train(V1~., data=trainDataP, method = 'svmRadialWeights', trControl=ctrl)
+
+### MAKE PREDICTIONS
+predictions1 <- predict(fit.rf, testDataP[,1:4])
+# summarize accuracy
+table(predictions1, testDataP$V1)
+
+
+
+write.csv(predictions1, 'svm.csv')
+
+
+
+############ NNET (SECOND CLASSIFIER)
+
+### TRAIN CONTROL (SUBSAMPLING WITH SMOTE)
+ctrl <- trainControl(method="repeatedcv",   # 10fold cross validation
+			number=10,                     
+			repeats=3,		    # do 3 repititions of cv
+                    	 summaryFunction=twoClassSummary,	# Use AUC to pick the best model
+                   	  classProbs=TRUE,
+			sampling = "smote")
+
+
+### calculate the pre-process parameters from the dataset  (USING SCALE)
+preprocessParams <- preProcess(trainData[,1:4], method=c("scale"))
+preprocessParams2 <- preProcess(datasetcompleto[,1:4], method=c("scale"))
+
+### transform the dataset using the parameters
+trainDataP <- predict(preprocessParams, trainData[,1:4])
+testDataP <- predict(preprocessParams2, datasetcompleto[,1:4])
+
+#### TRAIN AND TUNE THE MODEL
+
+set.seed(1492)
+fit.rf <- train(V1~., data=trainDataP, method = 'nnet', trControl=ctrl)
+
+# make prediction
+predictions2 <- predict(fit.rf, testDataP[,1:4])
+# summarize accuracy
+table(predictions2, testDataP$V1)
+
+
+write.csv(predictions2, 'nnet.csv')
+
+
+
+############ RF (THIRD CLASSIFIER)
+
+### TRAIN CONTROL
+ctrl <- trainControl(method="repeatedcv",   # 10fold cross validation
+			number=10,                     
+			repeats=3,		    # do 3 repititions of cv
+                    	 summaryFunction=twoClassSummary,	# Use AUC to pick the best model
+                   	  classProbs=TRUE)
+			
+
+
+### calculate the pre-process parameters from the dataset. (USING SCALE)
+preprocessParams <- preProcess(trainData[,1:4], method=c("scale"))
+preprocessParams2 <- preProcess(datasetcompleto[,1:4], method=c("scale"))
+
+### transform the dataset using the parameters
+trainDataP <- predict(preprocessParams, trainData[,1:4])
+testDataP <- predict(preprocessParams2, datasetcompleto[,1:4])
+
+
+##### TRAIN AND TUNE THE MODEL
+
+set.seed(1492)
+fit.rf <- train(V1~., data=trainDataP, method = 'rf', trControl=ctrl)
+
+### make prediction
+predictions3 <- predict(fit.rf, testDataP[,1:4])
+# summarize accuracy
+table(predictions3, testDataP$V1)
+
+write.csv(predictions3, 'rf.csv')
